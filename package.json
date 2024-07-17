@@ -14,8 +14,6 @@
     "@libsql/client": "^0.7.0",
     "@nextui-org/navbar": "^2.0.33",
     "@nextui-org/react": "^2.4.2",
-    "@types/node": "20.2.0",
-    "@types/react": "18.2.6",
     "@types/react-dom": "18.2.4",
     "chalk": "^5.3.0",
     "drizzle-orm": "^0.32.0",
@@ -28,15 +26,17 @@
     "react-modal-video": "^2.0.0",
     "react-slick": "^0.29.0",
     "sass": "^1.62.1",
-    "slick-carousel": "^1.8.1",
-    "typescript": "5.0.4"
+    "slick-carousel": "^1.8.1"
   },
   "devDependencies": {
+    "@types/node": "20.14.11",
+    "@types/react": "18.3.3",
     "@types/react-modal-video": "^1.2.0",
     "@types/react-slick": "^0.23.10",
     "autoprefixer": "^10.4.19",
     "drizzle-kit": "^0.23.0",
     "postcss": "^8.4.39",
-    "tailwindcss": "^3.4.5"
+    "tailwindcss": "^3.4.5",
+    "typescript": "5.5.3"
   }
 }

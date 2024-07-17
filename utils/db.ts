@@ -58,14 +58,20 @@ export const news = sqliteTable('news', {
   url: text('url').notNull(),
   title: text('title').notNull(),
   publishDate: text('publish_date').notNull(),
-  estado: integer('estado').notNull().default(1), // 1 for active, 0 for inactive
+  estado: text('estado').notNull().default('activa'),
 });
 
 // Type definitions
 export type EmployeeRow = typeof employees.$inferSelect;
 export type BreakScheduleRow = typeof breakSchedules.$inferSelect;
 export type UserRow = typeof users.$inferSelect;
-export type NovedadesRow = typeof news.$inferSelect;
+export type NovedadesRow = {
+  id: number;
+  url: string;
+  title: string;
+  publishDate: string;
+  estado: 'activa' | 'actualizada' | 'fuera_de_uso';
+};
 
 // Database initialization
 export async function ensureTablesExist() {
@@ -118,7 +124,7 @@ export async function ensureTablesExist() {
         url TEXT NOT NULL,
         title TEXT NOT NULL,
         publish_date TEXT NOT NULL,
-        estado INTEGER NOT NULL DEFAULT 1
+        estado TEXT NOT NULL DEFAULT 'activa'
       )
     `);
 
@@ -253,10 +259,19 @@ export async function getUserByEmail(email: string): Promise<UserRow | undefined
 }
 
 // News operations
-export async function getNews(): Promise<NovedadesRow[]> {
+export async function getNews(page: number = 1, limit: number = 10): Promise<NovedadesRow[]> {
   try {
     await ensureTablesExist();
-    return await db.select().from(news).all();
+    const offset = (page - 1) * limit;
+    const result = await db.select()
+      .from(news)
+      .limit(limit)
+      .offset(offset)
+      .all();
+    return result.map(item => ({
+      ...item,
+      estado: item.estado as NovedadesRow['estado']
+    }));
   } catch (error: unknown) {
     console.error('Error al obtener novedades:', error);
     throw new Error(`No se pudieron obtener las novedades: ${error instanceof Error ? error.message : String(error)}`);
@@ -275,31 +290,41 @@ export async function addNews(newsItem: Omit<NovedadesRow, 'id'>): Promise<void>
 
 export async function deleteNews(id: number): Promise<void> {
   try {
-    await db.delete(news).where(sql`id = ${id}`).run();
+    await db.delete(news).where(eq(news.id, id)).run();
   } catch (error: unknown) {
     console.error('Error al eliminar novedad:', error);
     throw new Error(`No se pudo eliminar la novedad: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
-export async function toggleEstadoNoticia(id: number): Promise<void> {
+export async function updateNewsStatus(id: number, newStatus: NovedadesRow['estado']): Promise<void> {
   try {
-    const noticia = await db.select().from(news).where(sql`id = ${id}`).get();
-    if (!noticia) {
-      throw new Error('Noticia no encontrada');
-    }
-
-    const nuevoEstado = noticia.estado === 1 ? 0 : 1;
-
     await db.update(news)
-      .set({ estado: nuevoEstado })
-      .where(sql`id = ${id}`)
+      .set({ estado: newStatus })
+      .where(eq(news.id, id))
       .run();
-
-    console.log(`Estado de la noticia ${id} actualizado a ${nuevoEstado}`);
+    console.log(`Estado de la noticia ${id} actualizado a ${newStatus}`);
   } catch (error: unknown) {
-    console.error('Error al alternar el estado de la noticia:', error);
-    throw new Error(`No se pudo alternar el estado de la noticia: ${error instanceof Error ? error.message : String(error)}`);
+    console.error('Error al actualizar el estado de la noticia:', error);
+    throw new Error(`No se pudo actualizar el estado de la noticia: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+export async function updateNews(newsItem: NovedadesRow): Promise<void> {
+  try {
+    await db.update(news)
+      .set({
+        url: newsItem.url,
+        title: newsItem.title,
+        publishDate: newsItem.publishDate,
+        estado: newsItem.estado
+      })
+      .where(eq(news.id, newsItem.id))
+      .run();
+    console.log(`Noticia ${newsItem.id} actualizada con éxito`);
+  } catch (error: unknown) {
+    console.error('Error al actualizar la noticia:', error);
+    throw new Error(`No se pudo actualizar la noticia: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

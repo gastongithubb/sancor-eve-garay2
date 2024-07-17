@@ -1,10 +1,8 @@
-// src/config.ts
-
-// Importa las variables de entorno directamente
-const tursoConnectionUrl = import.meta.env.PUBLIC_TURSO_DATABASE_URL as string;
-const tursoAuthToken = import.meta.env.PUBLIC_TURSO_AUTH_TOKEN as string;
-const googleClientId = import.meta.env.GOOGLE_CLIENT_ID as string;
-const googleClientSecret = import.meta.env.GOOGLE_CLIENT_SECRET as string;
+// Importa las variables de entorno correctamente
+const tursoConnectionUrl = process.env.PUBLIC_TURSO_DATABASE_URL as string;
+const tursoAuthToken = process.env.PUBLIC_TURSO_AUTH_TOKEN as string;
+const googleClientId = process.env.GOOGLE_CLIENT_ID as string;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET as string;
 
 // Configuración de la aplicación
 export const config = {
