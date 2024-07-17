@@ -14,14 +14,14 @@ const Banner: React.FC = () => {
               Evelin Garay <br /> 
               <span className="text-blue-600">Team Work</span>
             </h1>
-            <p className="text-xl font-light leading-relaxed text-slate-200">
+            <p className="text-xl font-light leading-relaxed text-[#1e1e1e]">
               Sancor Salud - Konecta
             </p>
             <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
               <Link href="/programacion" className="px-8 py-4 text-lg font-semibold text-center text-white transition duration-300 transform bg-blue-600 rounded-lg shadow-lg hover:bg-blue-700 hover:shadow-xl hover:-translate-y-1">
                 Programación
               </Link>
-              <Link href="/novedades" className="px-8 py-4 text-lg font-semibold text-center text-blue-400 transition duration-300 transform bg-transparent border-2 border-blue-400 rounded-lg shadow-lg hover:bg-blue-400 hover:text-white hover:shadow-xl hover:-translate-y-1">
+              <Link href="/news" className="px-8 py-4 text-lg font-semibold text-center text-blue-400 transition duration-300 transform bg-transparent border-2 border-blue-400 rounded-lg shadow-lg hover:bg-blue-400 hover:text-white hover:shadow-xl hover:-translate-y-1">
                 Novedades
               </Link>
             </div>

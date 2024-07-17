@@ -7,7 +7,7 @@ export const metadata = {
   title: 'Sancor Equipo Garay',
   description: 'Pagina creada para equipo sancor salud de CX para el equipo de Evelin Garay',
   icons: {
-    icon: '/favicon.svg',
+    icon: '/public/favicon.png',
   },
 }
 
