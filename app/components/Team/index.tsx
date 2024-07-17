@@ -13,8 +13,8 @@ const Topic: React.FC<{ title: string; description: string }> = ({ title, descri
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
     >
-        <h2 className="mb-3 text-4xl font-bold text-white">{title}</h2>
-        <p className="text-xl text-bluish">{description}</p>
+        <h2 className="mb-3 text-4xl font-bold text-[#1e1e1e]">{title}</h2>
+        <p className="text-xl text-[#626262]">{description}</p>
     </motion.div>
 );
 
@@ -62,7 +62,7 @@ const Collapse: React.FC<{ label: string; index: number; children: React.ReactNo
 
 const TeamMember: React.FC<{ member: any; index: number }> = ({ member, index }) => (
     <motion.div 
-        className="flex flex-col p-6 transition-all duration-300 border border-blue-200 shadow-lg bg-zinc-700 rounded-2xl hover:border-blue-400"
+        className="flex flex-col p-6 transition-all duration-300 border border-blue-200 shadow-lg bg-slate-600 rounded-2xl hover:border-blue-400"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: index * 0.1 }}
@@ -77,9 +77,6 @@ const TeamMember: React.FC<{ member: any; index: number }> = ({ member, index })
             </div>
         </div>
         <p className="mb-4 text-sm text-slate-100">{member.description}</p>
-        <Link href={member.link} className="self-end px-4 py-2 mt-auto text-sm font-medium text-blue-400 transition-colors duration-300 border border-blue-400 rounded-full hover:bg-blue-400 hover:text-white">
-            Ver perfil
-        </Link>
     </motion.div>
 );
 

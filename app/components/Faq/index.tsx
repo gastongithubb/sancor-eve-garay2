@@ -39,8 +39,8 @@ const Faq = () => {
                 transition={{ duration: 0.5 }}
                 className="mb-12 text-center"
             >
-                <h2 className="mb-4 text-3xl font-bold text-white lg:text-5xl">Preguntas Frecuentes</h2>
-                <p className="max-w-3xl mx-auto text-lg font-normal text-stone-400">Encuentre respuestas rápidas a las preguntas más comunes sobre nuestros servicios de salud y procedimientos.</p>
+                <h2 className="mb-4 text-3xl font-bold text-[#1e1e1e] lg:text-5xl">Preguntas Frecuentes</h2>
+                <p className="max-w-3xl mx-auto text-lg font-normal text-[#262626]">Encuentre respuestas rápidas a las preguntas más comunes sobre nuestros servicios de salud y procedimientos.</p>
             </motion.div>
 
             <div className="mx-auto max-w-7xl">
@@ -59,7 +59,7 @@ const Faq = () => {
                                     onClick={() => toggleFaq(index)}
                                     className="flex items-center justify-between w-full px-6 py-4 text-left focus:outline-none"
                                 >
-                                    <span className="text-xl font-medium text-white">{item.heading}</span>
+                                    <span className="text-xl font-medium text-black">{item.heading}</span>
                                     <svg
                                         className={`w-6 h-6 text-bluish transform transition-transform duration-200 ${activeIndex === index ? 'rotate-180' : ''}`}
                                         fill="none"

@@ -49,7 +49,7 @@ const Navbar: React.FC = () => {
   };
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white shadow-lg' : 'bg-transparent'}`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-[#f5f5f5] shadow-lg' : 'bg-transparent'}`}>
       <nav className={`container mx-auto px-4 py-3 transition-all duration-300 ${scrolled ? 'py-2' : 'py-4'}`}>
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center space-x-3">

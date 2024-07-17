@@ -10,9 +10,9 @@ const Banner: React.FC = () => {
       <div className="relative flex flex-col-reverse items-center md:flex-row" id="hero">
         <div className="md:w-1/2 lg:pr-12">
           <div className="space-y-8 text-left">
-            <h1 className="text-4xl font-bold leading-tight text-white md:text-5xl lg:text-6xl">
+            <h1 className="text-4xl font-bold leading-tight text-[#1e1e1e] md:text-5xl lg:text-6xl">
               Evelin Garay <br /> 
-              <span className="text-sky-200">Team Work</span>
+              <span className="text-blue-600">Team Work</span>
             </h1>
             <p className="text-xl font-light leading-relaxed text-slate-200">
               Sancor Salud - Konecta
