@@ -1,3 +1,4 @@
+// app > components > Foro > RealTimeForum.tsx
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -9,7 +10,7 @@ interface Message {
   timestamp: string;
 }
 
-const HealthForum: React.FC = () => {
+const RealTimeForum: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [username, setUsername] = useState('Anónimo');
@@ -124,4 +125,4 @@ const HealthForum: React.FC = () => {
   );
 };
 
-export default HealthForum;
+export default RealTimeForum;
