@@ -1,11 +1,9 @@
-// app > foro > page.tsx
+import HealthForum from '../components/Foro/HealthForum';
 
-import Forum from '../components/Foro/RealTimeForum';
-
-export default function TeamPage() {
+export default function ForoPage() {
   return (
     <div>
-      <Forum />
+      <HealthForum />
     </div>
   );
 }
