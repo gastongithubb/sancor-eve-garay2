@@ -1,9 +1,8 @@
-import Forum from '../components/foro/RealTimeForum';
+import Forum from '../components/Foro/RealTimeForum';
 
 export default function TeamPage() {
   return (
     <div>
-      <h1>Foro anonimo</h1>
       <Forum />
     </div>
   );
