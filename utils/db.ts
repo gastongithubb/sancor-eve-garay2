@@ -2,7 +2,7 @@ import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import { sql } from 'drizzle-orm';
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
-import { eq } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { config } from './config';
 
 // Database client setup
@@ -61,6 +61,13 @@ export const news = sqliteTable('news', {
   estado: text('estado').notNull().default('activa'),
 });
 
+export const npsTrimestral = sqliteTable('nps_trimestral', {
+  id: integer('id').primaryKey(),
+  userId: integer('user_id').notNull(),
+  month: text('month').notNull(),
+  nps: integer('nps').notNull(),
+});
+
 // Type definitions
 export type EmployeeRow = typeof employees.$inferSelect;
 export type BreakScheduleRow = typeof breakSchedules.$inferSelect;
@@ -72,38 +79,12 @@ export type NovedadesRow = {
   publishDate: string;
   estado: 'activa' | 'actualizada' | 'fuera_de_uso';
 };
+export type NPSTrimestralRow = typeof npsTrimestral.$inferSelect;
 
 // Database initialization
 export async function ensureTablesExist() {
   try {
-    console.log('Iniciando la inicialización de la base de datos...');
-
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS employees (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        first_name TEXT NOT NULL,
-        last_name TEXT NOT NULL,
-        email TEXT NOT NULL,
-        dni TEXT NOT NULL,
-        entry_time TEXT NOT NULL,
-        exit_time TEXT NOT NULL,
-        hours_worked INTEGER NOT NULL,
-        x_lite TEXT NOT NULL
-      )
-    `);
-
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS break_schedules (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        employee_id INTEGER NOT NULL,
-        day TEXT NOT NULL,
-        start_time TEXT NOT NULL,
-        end_time TEXT NOT NULL,
-        week INTEGER NOT NULL,
-        month INTEGER NOT NULL,
-        year INTEGER NOT NULL
-      )
-    `);
+    console.log('Iniciando la verificación de tablas...');
 
     await client.execute(`
       CREATE TABLE IF NOT EXISTS users (
@@ -117,6 +98,7 @@ export async function ensureTablesExist() {
         rd INTEGER NOT NULL DEFAULT 0
       )
     `);
+    console.log('Tabla users verificada/creada');
 
     await client.execute(`
       CREATE TABLE IF NOT EXISTS news (
@@ -127,6 +109,17 @@ export async function ensureTablesExist() {
         estado TEXT NOT NULL DEFAULT 'activa'
       )
     `);
+    console.log('Tabla news verificada/creada');
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS nps_trimestral (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        month TEXT NOT NULL,
+        nps INTEGER NOT NULL
+      )
+    `);
+    console.log('Tabla nps_trimestral verificada/creada');
 
     console.log('Inicialización de la base de datos completada con éxito');
   } catch (error) {
@@ -160,7 +153,7 @@ export async function updateEmployeeXLite(id: number, xLite: string): Promise<vo
   try {
     await db.update(employees)
       .set({ xLite })
-      .where(sql`id = ${id}`)
+      .where(eq(employees.id, id))
       .run();
   } catch (error: unknown) {
     console.error('Error al actualizar X LITE del empleado:', error);
@@ -174,7 +167,11 @@ export async function getBreakSchedules(employeeId: number, month: number, year:
     await ensureTablesExist();
     return await db.select()
       .from(breakSchedules)
-      .where(sql`employee_id = ${employeeId} AND month = ${month} AND year = ${year}`)
+      .where(and(
+        eq(breakSchedules.employeeId, employeeId),
+        eq(breakSchedules.month, month),
+        eq(breakSchedules.year, year)
+      ))
       .all();
   } catch (error: unknown) {
     console.error('Error al obtener horarios de break:', error);
@@ -192,13 +189,13 @@ export async function updateBreakSchedule(schedule: Omit<BreakScheduleRow, 'id'>
         startTime: schedule.startTime,
         endTime: schedule.endTime
       })
-      .where(sql`
-        employee_id = ${schedule.employeeId} AND
-        day = ${schedule.day} AND
-        week = ${schedule.week} AND
-        month = ${schedule.month} AND
-        year = ${schedule.year}
-      `)
+      .where(and(
+        eq(breakSchedules.employeeId, schedule.employeeId),
+        eq(breakSchedules.day, schedule.day),
+        eq(breakSchedules.week, schedule.week),
+        eq(breakSchedules.month, schedule.month),
+        eq(breakSchedules.year, schedule.year)
+      ))
       .run();
 
     if (result.rowsAffected === 0) {
@@ -217,10 +214,17 @@ export async function updateBreakSchedule(schedule: Omit<BreakScheduleRow, 'id'>
 // User operations
 export async function getUsers(): Promise<UserRow[]> {
   try {
+    console.log('Iniciando getUsers()...');
     await ensureTablesExist();
-    return await db.select().from(users).all();
+    console.log('Tablas verificadas, procediendo a obtener usuarios...');
+    const result = await db.select().from(users).all();
+    console.log('Usuarios obtenidos:', result);
+    return result;
   } catch (error: unknown) {
-    console.error('Error al obtener usuarios:', error);
+    console.error('Error detallado al obtener usuarios:', error);
+    if (error instanceof Error) {
+      console.error('Stack trace:', error.stack);
+    }
     throw new Error(`No se pudieron obtener los usuarios: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
@@ -230,7 +234,7 @@ export async function updateUser(user: UserRow): Promise<void> {
     await db
       .update(users)
       .set(user)
-      .where(sql`id = ${user.id}`)
+      .where(eq(users.id, user.id))
       .run();
   } catch (error: unknown) {
     console.error('Error al actualizar usuario:', error);
@@ -325,6 +329,39 @@ export async function updateNews(newsItem: NovedadesRow): Promise<void> {
   } catch (error: unknown) {
     console.error('Error al actualizar la noticia:', error);
     throw new Error(`No se pudo actualizar la noticia: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+// NPS Trimestral operations
+export async function getNPSTrimestral(userId: number): Promise<NPSTrimestralRow[]> {
+  try {
+    await ensureTablesExist();
+    return await db.select()
+      .from(npsTrimestral)
+      .where(eq(npsTrimestral.userId, userId))
+      .orderBy(desc(npsTrimestral.month))
+      .limit(3)
+      .all();
+  } catch (error: unknown) {
+    console.error('Error al obtener NPS trimestral:', error);
+    throw new Error(`No se pudo obtener el NPS trimestral: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+export async function updateNPSTrimestral(userId: number, month: string, nps: number): Promise<void> {
+  try {
+    const result = await db
+      .insert(npsTrimestral)
+      .values({ userId, month, nps })
+      .onConflictDoUpdate({
+        target: [npsTrimestral.userId, npsTrimestral.month],
+        set: { nps }
+      })
+      .run();
+    console.log(`NPS trimestral actualizado para el usuario ${userId} en el mes ${month}`);
+  } catch (error: unknown) {
+    console.error('Error al actualizar NPS trimestral:', error);
+    throw new Error(`No se pudo actualizar el NPS trimestral: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
