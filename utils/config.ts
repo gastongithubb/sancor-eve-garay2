@@ -4,7 +4,7 @@ import path from 'path';
 
 // Cargar variables de entorno desde .env.local solo en el servidor
 if (typeof window === 'undefined') {
-  dotenvConfig({ path: path.resolve(process.cwd(), '.env.local') });
+  dotenvConfig({ path: path.resolve(process.cwd(), '.env') });
 }
 
 const getEnvVariable = (key: string): string => {
