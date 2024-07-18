@@ -1,7 +1,7 @@
-// app > components > Foro > HealthForum.tsx
 'use client'
-
 import React, { useState, useEffect, useRef } from 'react';
+import { initializeSocket, getSocket } from '@/lib/websocket';
+import { Socket } from 'socket.io-client';
 
 interface Message {
   id: string;
@@ -15,34 +15,34 @@ const HealthForum: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [username, setUsername] = useState('Anónimo');
   const [isConnected, setIsConnected] = useState(false);
-  const websocket = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    websocket.current = new WebSocket('ws://localhost:8080');
+    const setupSocket = async () => {
+      try {
+        const socket = await getSocket();
+        socketRef.current = socket;
 
-    websocket.current.onopen = () => {
-      console.log('Conexión WebSocket establecida');
-      setIsConnected(true);
+        socket.on('connect', () => setIsConnected(true));
+        socket.on('disconnect', () => setIsConnected(false));
+        socket.on('chat message', (msg: Message) => {
+          setMessages((prevMessages) => [...prevMessages, msg]);
+        });
+
+        setIsConnected(socket.connected);
+      } catch (error) {
+        console.error('Error setting up socket:', error);
+      }
     };
 
-    websocket.current.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      setMessages((prevMessages) => [...prevMessages, message]);
-    };
-
-    websocket.current.onerror = (error) => {
-      console.error('Error en la conexión WebSocket:', error);
-    };
-
-    websocket.current.onclose = () => {
-      console.log('Conexión WebSocket cerrada');
-      setIsConnected(false);
-    };
+    setupSocket();
 
     return () => {
-      if (websocket.current) {
-        websocket.current.close();
+      if (socketRef.current) {
+        socketRef.current.off('connect');
+        socketRef.current.off('disconnect');
+        socketRef.current.off('chat message');
       }
     };
   }, []);
@@ -55,7 +55,7 @@ const HealthForum: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newMessage.trim() && isConnected) {
       const message = {
@@ -64,8 +64,13 @@ const HealthForum: React.FC = () => {
         timestamp: new Date().toISOString(),
       };
 
-      websocket.current?.send(JSON.stringify(message));
-      setNewMessage('');
+      try {
+        const socket = await getSocket();
+        socket.emit('chat message', message);
+        setNewMessage('');
+      } catch (error) {
+        console.error('Error sending message:', error);
+      }
     }
   };
 
@@ -80,7 +85,6 @@ const HealthForum: React.FC = () => {
           className="p-2 border rounded bg-white text-gray-700"
         >
           <option value="Anónimo">Anónimo</option>
-          <option value="Evelin Garay">Evelin Garay</option>
         </select>
       </div>
       <div className="bg-gray-50 p-4 h-96 overflow-y-auto mb-4 rounded-lg border border-gray-200">
