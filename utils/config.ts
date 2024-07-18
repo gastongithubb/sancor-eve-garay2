@@ -1,29 +1,20 @@
-// file: utils/config.ts
-import { config as dotenvConfig } from 'dotenv';
-import path from 'path';
-
-// Cargar variables de entorno desde .env.local solo en el servidor
-if (typeof window === 'undefined') {
-  dotenvConfig({ path: path.resolve(process.cwd(), '.env') });
-}
-
 const getEnvVariable = (key: string): string => {
   const value = process.env[key];
   if (!value) {
-    if (typeof window !== 'undefined') {
-      console.error(`Error: ${key} no está definido`);
-    } else {
-      throw new Error(`${key} no está definido`);
-    }
+    console.error(`Error: ${key} no está definido`);
+    return '';
   }
-  return value || '';
+  return value;
 };
 
 export const config = {
-  tursoConnectionUrl: getEnvVariable('TURSO_DATABASE_URL'),
-  tursoAuthToken: getEnvVariable('TURSO_AUTH_TOKEN'),
-  googleClientId: getEnvVariable('GOOGLE_CLIENT_ID'),
-  googleClientSecret: getEnvVariable('GOOGLE_CLIENT_SECRET'),
+  tursoConnectionUrl: getEnvVariable('NEXT_PUBLIC_TURSO_DATABASE_URL'),
+  tursoAuthToken: getEnvVariable('NEXT_PUBLIC_TURSO_AUTH_TOKEN'),
+  googleClientId: getEnvVariable('NEXT_PUBLIC_GOOGLE_CLIENT_ID'),
+  googleClientSecret: getEnvVariable('NEXT_PUBLIC_GOOGLE_CLIENT_SECRET'),
 };
+
+// Logs para depuración
+console.log('Config loaded:', config);
 
 export default config;
