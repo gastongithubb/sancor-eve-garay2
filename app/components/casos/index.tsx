@@ -6,6 +6,8 @@ import { motion } from 'framer-motion';
 interface CaseData {
   caseNumber: string;
   table: 'Derivar' | 'Cerrar';
+  area: string;
+  customArea: string;
   reason: string;
 }
 
@@ -13,6 +15,8 @@ const CaseManagement: React.FC = () => {
   const [caseData, setCaseData] = useState<CaseData>({
     caseNumber: '',
     table: 'Derivar',
+    area: '',
+    customArea: '',
     reason: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -21,7 +25,8 @@ const CaseManagement: React.FC = () => {
     const { name, value } = e.target;
     setCaseData(prevData => ({
       ...prevData,
-      [name]: value
+      [name]: value,
+      ...(name === 'table' && value === 'Cerrar' ? { area: '', customArea: '' } : {})
     }));
   };
 
@@ -29,7 +34,14 @@ const CaseManagement: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    const message = `Hola Eve, te paso el caso: ${caseData.caseNumber} donde corresponde ${caseData.table} ya que ${caseData.reason}`;
+    let message = '';
+    if (caseData.table === 'Derivar') {
+      const selectedArea = caseData.area === 'Otro' ? caseData.customArea : caseData.area;
+      message = `Hola Eve, te paso el caso: ${caseData.caseNumber} donde corresponde ${caseData.table} al área de ${selectedArea} ya que ${caseData.reason}`;
+    } else {
+      message = `Hola Eve, te paso el caso: ${caseData.caseNumber} donde corresponde ${caseData.table} ya que ${caseData.reason}`;
+    }
+    
     const encodedMessage = encodeURIComponent(message);
     
     await new Promise(resolve => setTimeout(resolve, 1000)); // Simular una carga
@@ -39,6 +51,8 @@ const CaseManagement: React.FC = () => {
     setCaseData({
       caseNumber: '',
       table: 'Derivar',
+      area: '',
+      customArea: '',
       reason: ''
     });
     setIsSubmitting(false);
@@ -99,6 +113,55 @@ const CaseManagement: React.FC = () => {
             </div>
           </div>
         </div>
+        {caseData.table === 'Derivar' && (
+          <div className="mb-6">
+            <label className="block mb-2 text-sm font-bold text-gray-700" htmlFor="area">
+              Área
+            </label>
+            <div className="relative">
+              <select
+                className="block w-full px-3 py-2 pr-8 leading-tight text-gray-700 bg-white border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                id="area"
+                name="area"
+                value={caseData.area}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Seleccione un área</option>
+                <option value="Autorizaciones">Autorizaciones</option>
+                <option value="Medicamentos">Medicamentos</option>
+                <option value="Afiliaciones">Afiliaciones</option>
+                <option value="Pagos">Pagos</option>
+                <option value="Cobranzas">Cobranzas</option>
+                <option value="Liquidaciones">Liquidaciones</option>
+                <option value="Auditoria de copagos">Auditoria de copagos</option>
+                <option value="Otro">Otro</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 pointer-events-none">
+                <svg className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        )}
+        {caseData.table === 'Derivar' && caseData.area === 'Otro' && (
+          <div className="mb-6">
+            <label className="block mb-2 text-sm font-bold text-gray-700" htmlFor="customArea">
+              Especifique el área
+            </label>
+            <input
+              className="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+              id="customArea"
+              type="text"
+              name="customArea"
+              value={caseData.customArea}
+              onChange={handleChange}
+              required
+              placeholder="Ingrese el área personalizada"
+            />
+          </div>
+        )}
         <div className="mb-6">
           <label className="block mb-2 text-sm font-bold text-gray-700" htmlFor="reason">
             Motivo

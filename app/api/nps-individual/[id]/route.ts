@@ -1,33 +1,51 @@
-// En /app/api/nps-individual/[id]/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { db, users } from '@/utils/db';
+import { NextResponse } from 'next/server';
+import { db } from "@/utils/db";
+import { users } from '@/utils/db';
 import { eq } from 'drizzle-orm';
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
-  const userId = parseInt(params.id, 10);
-  const updatedData = await request.json();
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  if (!db) {
+    return NextResponse.json({ error: "Database connection not available" }, { status: 500 });
+  }
 
   try {
-    await db.update(users)
-      .set({
-        nps: updatedData.nps,
-        csat: updatedData.csat,
-        rd: updatedData.rd,
-        responses: updatedData.responses
-      })
-      .where(eq(users.id, userId))
-      .execute();
+    const id = parseInt(params.id, 10);
+    const user = await db.select().from(users).where(eq(users.id, id)).get();
 
-    // Fetch the updated user data
-    const updatedUser = await db.select().from(users).where(eq(users.id, userId)).get();
-
-    if (!updatedUser) {
-      return NextResponse.json({ error: 'User not found after update' }, { status: 404 });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json(updatedUser);
+    return NextResponse.json(user);
   } catch (error) {
-    console.error('Error updating user data:', error);
-    return NextResponse.json({ error: 'Error updating user data' }, { status: 500 });
+    console.error('Error fetching user:', error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  if (!db) {
+    return NextResponse.json({ error: "Database connection not available" }, { status: 500 });
+  }
+
+  try {
+    const id = parseInt(params.id, 10);
+    const { responses, nps, csat, rd } = await request.json();
+
+    await db.update(users)
+      .set({ responses, nps, csat, rd })
+      .where(eq(users.id, id))
+      .run();
+
+    return NextResponse.json({ message: "User updated successfully" });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

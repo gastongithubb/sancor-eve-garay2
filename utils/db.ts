@@ -1,22 +1,71 @@
-import { createClient } from '@libsql/client';
+// db.ts
+import { createClient, Client } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import { sql } from 'drizzle-orm';
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 import { eq, and, desc } from 'drizzle-orm';
 import { config } from './config';
+import { LibSQLDatabase } from 'drizzle-orm/libsql';
 
-// Database client setup
 console.log('Configuración de la base de datos:', {
-  url: config.tursoConnectionUrl,
-  authToken: config.tursoAuthToken ? '***' : undefined
+  url: config.tursoConnectionUrl || 'NO CONFIGURADO',
+  authToken: config.tursoAuthToken ? 'CONFIGURADO (oculto)' : 'NO CONFIGURADO'
 });
 
-export const client = createClient({
-  url: config.tursoConnectionUrl,
-  authToken: config.tursoAuthToken
-});
+let client: Client | null = null;
+export let db: LibSQLDatabase | null = null;
 
-export const db = drizzle(client);
+let retryCount = 0;
+const MAX_RETRIES = 3;
+
+const initializeDb = async (): Promise<void> => {
+  try {
+    if (!config.tursoConnectionUrl) {
+      throw new Error('URL de conexión a Turso no configurada');
+    }
+    if (!config.tursoAuthToken) {
+      throw new Error('Token de autenticación de Turso no configurado');
+    }
+
+    console.log('Intentando crear cliente con:', {
+      url: config.tursoConnectionUrl || 'NO CONFIGURADO',
+      authToken: config.tursoAuthToken ? 'CONFIGURADO (oculto)' : 'NO CONFIGURADO'
+    });
+    
+    client = createClient({
+      url: config.tursoConnectionUrl,
+      authToken: config.tursoAuthToken
+    });
+    
+    console.log('Cliente creado exitosamente');
+
+    db = drizzle(client);
+
+    console.log('Cliente de base de datos y drizzle inicializados correctamente');
+    retryCount = 0;
+  } catch (error) {
+    console.error('Error al inicializar el cliente de base de datos:', error);
+    if (retryCount < MAX_RETRIES) {
+      retryCount++;
+      console.log(`Reintentando conexión (intento ${retryCount} de ${MAX_RETRIES})...`);
+      setTimeout(initializeDb, 5000);
+    } else {
+      console.error('Se alcanzó el número máximo de intentos de reconexión');
+      client = null;
+      db = null;
+    }
+  }
+};
+
+initializeDb();
+
+// Función para verificar y reiniciar la conexión si es necesario
+const ensureConnection = async (): Promise<void> => {
+  if (!db) {
+    console.log('La conexión a la base de datos no está disponible. Intentando reconectar...');
+    await initializeDb();
+  }
+};
 
 // Table definitions
 export const employees = sqliteTable('employees', {
@@ -45,8 +94,6 @@ export const breakSchedules = sqliteTable('break_schedules', {
 export const users = sqliteTable('users', {
   id: integer('id').primaryKey(),
   name: text('name').notNull(),
-  email: text('email').notNull().unique(),
-  password: text('password').notNull(),
   responses: integer('responses').notNull().default(0),
   nps: integer('nps').notNull().default(0),
   csat: integer('csat').notNull().default(0),
@@ -81,17 +128,48 @@ export type NovedadesRow = {
 };
 export type NPSTrimestralRow = typeof npsTrimestral.$inferSelect;
 
-// Database initialization
-export async function ensureTablesExist() {
+// Database operations
+export async function ensureTablesExist(): Promise<void> {
+  if (!client) {
+    console.error('La conexión a la base de datos no está disponible');
+    return;
+  }
   try {
     console.log('Iniciando la verificación de tablas...');
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS employees (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        dni TEXT NOT NULL,
+        entry_time TEXT NOT NULL,
+        exit_time TEXT NOT NULL,
+        hours_worked INTEGER NOT NULL,
+        x_lite TEXT NOT NULL
+      )
+    `);
+    console.log('Tabla employees verificada/creada');
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS break_schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employee_id INTEGER NOT NULL,
+        day TEXT NOT NULL,
+        start_time TEXT NOT NULL,
+        end_time TEXT NOT NULL,
+        week INTEGER NOT NULL,
+        month INTEGER NOT NULL,
+        year INTEGER NOT NULL
+      )
+    `);
+    console.log('Tabla break_schedules verificada/creada');
 
     await client.execute(`
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        password TEXT NOT NULL,
         responses INTEGER NOT NULL DEFAULT 0,
         nps INTEGER NOT NULL DEFAULT 0,
         csat INTEGER NOT NULL DEFAULT 0,
@@ -130,6 +208,10 @@ export async function ensureTablesExist() {
 
 // Employee operations
 export async function getEmployees(): Promise<EmployeeRow[]> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
   try {
     await ensureTablesExist();
     return await db.select().from(employees).all();
@@ -140,6 +222,10 @@ export async function getEmployees(): Promise<EmployeeRow[]> {
 }
 
 export async function addEmployee(employee: Omit<EmployeeRow, 'id'>): Promise<void> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
   try {
     await ensureTablesExist();
     await db.insert(employees).values(employee).run();
@@ -149,20 +235,12 @@ export async function addEmployee(employee: Omit<EmployeeRow, 'id'>): Promise<vo
   }
 }
 
-export async function updateEmployeeXLite(id: number, xLite: string): Promise<void> {
-  try {
-    await db.update(employees)
-      .set({ xLite })
-      .where(eq(employees.id, id))
-      .run();
-  } catch (error: unknown) {
-    console.error('Error al actualizar X LITE del empleado:', error);
-    throw new Error(`No se pudo actualizar X LITE del empleado: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
 // Break schedule operations
 export async function getBreakSchedules(employeeId: number, month: number, year: number): Promise<BreakScheduleRow[]> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
   try {
     await ensureTablesExist();
     return await db.select()
@@ -180,6 +258,10 @@ export async function getBreakSchedules(employeeId: number, month: number, year:
 }
 
 export async function updateBreakSchedule(schedule: Omit<BreakScheduleRow, 'id'>): Promise<void> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
   try {
     console.log('Intentando actualizar horario de break:', schedule);
     
@@ -213,12 +295,16 @@ export async function updateBreakSchedule(schedule: Omit<BreakScheduleRow, 'id'>
 
 // User operations
 export async function getUsers(): Promise<UserRow[]> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
   try {
     console.log('Iniciando getUsers()...');
     await ensureTablesExist();
     console.log('Tablas verificadas, procediendo a obtener usuarios...');
     const result = await db.select().from(users).all();
-    console.log('Usuarios obtenidos:', result);
+    console.log('Usuarios obtenidos:', result.length);
     return result;
   } catch (error: unknown) {
     console.error('Error detallado al obtener usuarios:', error);
@@ -230,6 +316,10 @@ export async function getUsers(): Promise<UserRow[]> {
 }
 
 export async function updateUser(user: UserRow): Promise<void> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
   try {
     await db
       .update(users)
@@ -243,6 +333,10 @@ export async function updateUser(user: UserRow): Promise<void> {
 }
 
 export async function createUser(user: Omit<UserRow, 'id'>): Promise<void> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
   try {
     await ensureTablesExist();
     await db.insert(users).values(user).run();
@@ -252,27 +346,24 @@ export async function createUser(user: Omit<UserRow, 'id'>): Promise<void> {
   }
 }
 
-export async function getUserByEmail(email: string): Promise<UserRow | undefined> {
-  try {
-    await ensureTablesExist();
-    return await db.select().from(users).where(eq(users.email, email)).get();
-  } catch (error: unknown) {
-    console.error('Error al obtener usuario por email:', error);
-    throw new Error(`No se pudo obtener el usuario por email: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
 // News operations
 export async function getNews(page: number = 1, limit: number = 10): Promise<NovedadesRow[]> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
   try {
+    console.log(`Fetching news from database. Page: ${page}, Limit: ${limit}`);
     await ensureTablesExist();
     const offset = (page - 1) * limit;
+    console.log(`Offset: ${offset}`);
     const result = await db.select()
       .from(news)
       .limit(limit)
       .offset(offset)
       .all();
-    return result.map(item => ({
+    console.log(`Retrieved ${result.length} news items from database`);
+    return result.map((item: any) => ({
       ...item,
       estado: item.estado as NovedadesRow['estado']
     }));
@@ -283,6 +374,10 @@ export async function getNews(page: number = 1, limit: number = 10): Promise<Nov
 }
 
 export async function addNews(newsItem: Omit<NovedadesRow, 'id'>): Promise<void> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
   try {
     await ensureTablesExist();
     await db.insert(news).values(newsItem).run();
@@ -293,6 +388,10 @@ export async function addNews(newsItem: Omit<NovedadesRow, 'id'>): Promise<void>
 }
 
 export async function deleteNews(id: number): Promise<void> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
   try {
     await db.delete(news).where(eq(news.id, id)).run();
   } catch (error: unknown) {
@@ -302,6 +401,10 @@ export async function deleteNews(id: number): Promise<void> {
 }
 
 export async function updateNewsStatus(id: number, newStatus: NovedadesRow['estado']): Promise<void> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
   try {
     await db.update(news)
       .set({ estado: newStatus })
@@ -315,6 +418,10 @@ export async function updateNewsStatus(id: number, newStatus: NovedadesRow['esta
 }
 
 export async function updateNews(newsItem: NovedadesRow): Promise<void> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
   try {
     await db.update(news)
       .set({
@@ -334,6 +441,10 @@ export async function updateNews(newsItem: NovedadesRow): Promise<void> {
 
 // NPS Trimestral operations
 export async function getNPSTrimestral(userId: number): Promise<NPSTrimestralRow[]> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
   try {
     await ensureTablesExist();
     return await db.select()
@@ -349,6 +460,10 @@ export async function getNPSTrimestral(userId: number): Promise<NPSTrimestralRow
 }
 
 export async function updateNPSTrimestral(userId: number, month: string, nps: number): Promise<void> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
   try {
     const result = await db
       .insert(npsTrimestral)
@@ -365,6 +480,76 @@ export async function updateNPSTrimestral(userId: number, month: string, nps: nu
   }
 }
 
-// Alias exports for backwards compatibility
-export const registerUser = createUser;
-export const verifyUser = getUserByEmail;
+// Función para obtener estadísticas generales de usuarios
+export async function getUserStatistics(): Promise<{ totalUsers: number, averageNPS: number, averageCSAT: number, averageRD: number }> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
+  try {
+    const result = await db.select({
+      totalUsers: sql<number>`COALESCE(COUNT(*), 0)`,
+      averageNPS: sql<number>`COALESCE(AVG(nps), 0)`,
+      averageCSAT: sql<number>`COALESCE(AVG(csat), 0)`,
+      averageRD: sql<number>`COALESCE(AVG(rd), 0)`
+    }).from(users).get();
+  
+    if (!result) {
+      throw new Error('No se obtuvieron resultados de la consulta');
+    }
+  
+    return {
+      totalUsers: Number(result.totalUsers),
+      averageNPS: Number(result.averageNPS),
+      averageCSAT: Number(result.averageCSAT),
+      averageRD: Number(result.averageRD)
+    };
+  } catch (error: unknown) {
+    console.error('Error al obtener estadísticas de usuarios:', error);
+    throw new Error(`No se pudieron obtener las estadísticas de usuarios: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+// Función para obtener el top 5 de empleados con más horas trabajadas
+export async function getTopEmployees(): Promise<EmployeeRow[]> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
+  try {
+    return await db.select()
+      .from(employees)
+      .orderBy(desc(employees.hoursWorked))
+      .limit(5)
+      .all();
+  } catch (error: unknown) {
+    console.error('Error al obtener top empleados:', error);
+    throw new Error(`No se pudo obtener el top de empleados: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+// Función para obtener resumen de horarios de break por semana
+export async function getWeeklyBreakSummary(week: number, year: number): Promise<{ day: string, totalBreakTime: number }[]> {
+  await ensureConnection();
+  if (!db) {
+    throw new Error('La conexión a la base de datos no está disponible');
+  }
+  try {
+    const breakSummary = await db.select({
+      day: breakSchedules.day,
+      totalBreakTime: sql<number>`SUM((julianday(end_time) - julianday(start_time)) * 24 * 60)`
+    })
+    .from(breakSchedules)
+    .where(and(
+      eq(breakSchedules.week, week),
+      eq(breakSchedules.year, year)
+    ))
+    .groupBy(breakSchedules.day)
+    .all();
+
+    return breakSummary;
+  } catch (error: unknown) {
+    console.error('Error al obtener resumen semanal de breaks:', error);
+    throw new Error(`No se pudo obtener el resumen semanal de breaks: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
